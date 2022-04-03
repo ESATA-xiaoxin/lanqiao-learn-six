@@ -1,0 +1,432 @@
+C51 COMPILER V9.60.0.0   MAIN                                                              04/03/2022 14:00:05 PAGE 1   
+
+
+C51 COMPILER V9.60.0.0, COMPILATION OF MODULE MAIN
+OBJECT MODULE PLACED IN .\Objects\main.obj
+COMPILER INVOKED BY: D:\APP\keil5\C51\BIN\C51.EXE main.c OPTIMIZE(8,SPEED) BROWSE DEBUG OBJECTEXTEND PRINT(.\Listings\ma
+                    -in.lst) TABS(2) OBJECT(.\Objects\main.obj)
+
+line level    source
+
+   1          #include <STC15F2K60S2.H>
+   2          #include "onewire.h"
+   3          #include "ds1302.h"
+   4          
+   5          typedef unsigned char uchar;
+   6          typedef unsigned int uint;
+   7          
+   8          sbit S7 = P3^0;
+   9          sbit S6 = P3^1;
+  10          sbit S5 = P3^2;
+  11          sbit S4 = P3^3;
+  12          sbit L1 = P0^0;
+  13          
+  14          uchar code dpnum[]={0xc0,0xf9,0xa4,0xb0,0x99,0x92,0x82,0xf8,0x80,0x90,0xbf,0xff};
+  15          uchar code Time_Wadd[]={0x80,0x82,0x84,0x86,0x88,0x8a,0x8c};
+  16          uchar code Time_Radd[]={0x81,0x83,0x85,0x87,0x89,0x8b,0x8d};
+  17          uchar code Time_Init[]={0x50,0x59,0x23,0x01,0x04,0x05,0x22};
+  18          uchar Time_save[7]={0};
+  19          uint temperature_save[10]={0};
+  20          uchar tempnum=0;
+  21          uchar count_t;
+  22          uint count_t1;
+  23          uchar Collect_interval=1;//²É¼¯¼ä¸ô
+  24          uchar Collect_interval_state=0;
+  25          uchar Interface=0;
+  26          bit smgstate=0;
+  27          bit tempflag=0;
+  28          uint temperature;
+  29          uchar index=0;
+  30          
+  31          void System_Init();
+  32          void ColTset();
+  33          void display_bit(uchar pos,uchar dat);
+  34          void delayms(uchar ms);
+  35          void Face();
+  36          void key();
+  37          void Time_Reset();
+  38          void Time_Read();
+  39          void Timer0_Init();
+  40          void display_interface2();
+  41          void delay_L(uchar ms);
+  42          void Timer1_Init();
+  43          void Tsave();
+  44          void display_Index(uchar index);
+  45          uint DS18B20_Read();
+  46          
+  47          void main()
+  48          {
+  49   1        System_Init();
+  50   1        Timer0_Init();
+  51   1        Timer1_Init();
+  52   1        Time_Reset();
+  53   1        while(1)
+  54   1        {
+C51 COMPILER V9.60.0.0   MAIN                                                              04/03/2022 14:00:05 PAGE 2   
+
+  55   2          temperature= DS18B20_Read();//µÈ´ýDS18B20Õý³£¹¤×÷,²»¼ÓÉÏÕâÒ»¾äË÷ÒýÎª00µÄÎÂ¶È×ÜÊÇÉÏÒ»´Î²É¼¯µÄË÷ÒýÎª09µÄÎÂ
+             -¶ÈÖµ£¬¿´ÁËÒ»ÏÂ¸³ÖµµÄÇé¿öÒ²Ã»ÎÊÌâ£¬µ½×îºó²Â²â
+  56   2                                       //Ó¦¸ÃÊÇµ±²É¼¯µ½10¸öÊý¾ÝÊ±¶¨Ê±Æ÷¹Ø±Õ£¬È»ºó³ÌÐòÒ»Ö±¶¼Ã»ÓÐ¼ì²âÎÂ¶ÈµÄ³ÌÐò£¬ÔÙ´
+             -Î´ò¿ª¶¨Ê±Æ÷1¾Í¶Áµ½ÉÏ´Î¹Ø±Õ¶¨Ê±Æ÷1Ê±ºòµÄÎÂ¶ÈÖµ
+  57   2                                       //¼ÓÉÏÕâ¾ä»°ºó¶¨Ê±Æ÷1¹Ø±Õºó»¹ÄÜ¼ÌÐøË¢ÐÂÎÂ¶ÈµÄÖµ£¬È»ºóË÷ÒýÎª00µÄÎÂ¶È²É¼¯Õý³£
+  58   2          Time_Read();
+  59   2          key();
+  60   2          ColTset();
+  61   2          Face();
+  62   2        }
+  63   1      }
+  64          
+  65          void System_Init()
+  66          {
+  67   1        P2 = (P2 & 0x1f) | 0x80;
+  68   1        P0 = 0xff;
+  69   1        P2 = (P2 & 0x1f) | 0xa0;
+  70   1        P0 = 0x00;
+  71   1        P2 = (P2 & 0x1f) | 0xc0;
+  72   1        P0 = 0xff;
+  73   1        P2 = (P2 & 0x1f) | 0xe0;
+  74   1        P0 = 0xff;
+  75   1      }
+  76          void ColTset()
+  77          {
+  78   1        switch(Collect_interval_state)
+  79   1        {
+  80   2          case 0:
+  81   2            Collect_interval=1;
+  82   2            break;
+  83   2          case 1:
+  84   2            Collect_interval=5;
+  85   2            break;
+  86   2          case 2:
+  87   2            Collect_interval=30;
+  88   2            break;
+  89   2          case 3:
+  90   2            Collect_interval=60;
+  91   2            break;
+  92   2        }
+  93   1      }
+  94          void display_bit(uchar pos,uchar dat)
+  95          {
+  96   1        P2 = (P2 & 0x1f) | 0xc0;
+  97   1        P0 = 0x01 << pos;
+  98   1        P2 = (P2 & 0x1f) | 0xe0;
+  99   1        P0 = dat;
+ 100   1      }
+ 101          void delayms(uchar ms)
+ 102          {
+ 103   1        uint i,j;
+ 104   1        for(i=ms;i>0;i--)
+ 105   1          for(j=810;j>0;j--);
+ 106   1      }
+ 107          void Face()
+ 108          {
+ 109   1        switch(Interface)
+ 110   1        {
+ 111   2          case 0:
+ 112   2            display_bit(5,dpnum[10]);
+ 113   2            delayms(1);
+ 114   2            display_bit(6,dpnum[Collect_interval/10]);
+C51 COMPILER V9.60.0.0   MAIN                                                              04/03/2022 14:00:05 PAGE 3   
+
+ 115   2            delayms(1);
+ 116   2            display_bit(7,dpnum[Collect_interval%10]);
+ 117   2            delayms(1);
+ 118   2            P2 = (P2 & 0x1f) | 0xc0;
+ 119   2            P0 = 0xff;
+ 120   2            P2 = (P2 & 0x1f) | 0xe0;
+ 121   2            P0 = 0xff;
+ 122   2            break;
+ 123   2          case 1:  //Ê±¼äÏÔÊ¾½çÃæ
+ 124   2            TR0=1;  //´ò¿ª¶¨Ê±Æ÷0
+ 125   2            display_interface2();
+ 126   2            TR1 = 1;//¿ªÊ¼¼ÆÊ±
+ 127   2            Tsave();
+ 128   2            if(S5==0)
+ 129   2            {}  //ÔÚ½çÃæ1°´ÏÂS5ÎÞÐ§
+ 130   2            while(TR1==0)
+ 131   2            {
+ 132   3              P2 = (P2 & 0x1f)| 0x80;
+ 133   3              P0 |=0XFE;
+ 134   3              L1 = 0;
+ 135   3              delay_L(5);
+ 136   3              P2 = (P2 & 0x1f)| 0x80;
+ 137   3              P0 |=0XFE;
+ 138   3              L1 = 1;
+ 139   3              delay_L(5);
+ 140   3              if(S6==0||S7==0)
+ 141   3              {
+ 142   4                delayms(5);
+ 143   4                if(S6==0||S7==0)
+ 144   4                  break;  //µ±°´¼üS6»òS7°´ÏÂÊ±Ìø³öÑ­»·
+ 145   4              }
+ 146   3            }
+ 147   2            display_bit(0,dpnum[Time_save[2]/16]);
+ 148   2            delayms(1);
+ 149   2            display_bit(1,dpnum[Time_save[2]%16]);
+ 150   2            delayms(1);
+ 151   2      //      display_bit(2,dpnum[10]);
+ 152   2      //      delayms(1);
+ 153   2            display_bit(3,dpnum[Time_save[1]/16]);
+ 154   2            delayms(1);
+ 155   2            display_bit(4,dpnum[Time_save[1]%16]);
+ 156   2            delayms(1);
+ 157   2      //      display_bit(5,dpnum[10]);
+ 158   2      //      delayms(1);     //¼ÓÔÚÖÐ¶Ïº¯ÊýÀïÃæ£¬´ïµ½ÉÁË¸¹¦ÄÜ
+ 159   2            display_bit(6,dpnum[Time_save[0]/16]);
+ 160   2            delayms(1);
+ 161   2            display_bit(7,dpnum[Time_save[0]%16]);
+ 162   2            delayms(1);
+ 163   2            P2 = (P2 & 0x1f) | 0xc0;
+ 164   2            P0 = 0xff;
+ 165   2            P2 = (P2 & 0x1f) | 0xe0;
+ 166   2            P0 = 0xff;
+ 167   2            break;
+ 168   2          case 2:
+ 169   2            display_Index(index);
+ 170   2            break;
+ 171   2        }
+ 172   1      }
+ 173          void delay_L(uchar ms)
+ 174          {
+ 175   1        uint i,j;
+ 176   1        for(i=ms;i>0;i--)
+C51 COMPILER V9.60.0.0   MAIN                                                              04/03/2022 14:00:05 PAGE 4   
+
+ 177   1        {
+ 178   2          for(j=10;j>0;j--)
+ 179   2          {
+ 180   3            display_Index(0);//×Ô¶¯ÏÔÊ¾µÚÒ»´Î²É¼¯µÄÊý¾Ý
+ 181   3          }
+ 182   2        }
+ 183   1      }
+ 184          void key()
+ 185          {
+ 186   1        if(S4==0 && Interface==0) //°´¼üS4ÔÚ½çÃæ0ÓÐÐ§
+ 187   1        {
+ 188   2          delayms(5);
+ 189   2          if(S4==0)
+ 190   2          {
+ 191   3            Collect_interval_state++;
+ 192   3            if(Collect_interval_state>3)
+ 193   3            {
+ 194   4              Collect_interval_state=0;
+ 195   4            }
+ 196   3            while(S4==0);
+ 197   3          }
+ 198   2        }
+ 199   1        else if(S5==0)
+ 200   1        {
+ 201   2          delayms(5);
+ 202   2          if(S5==0)
+ 203   2          {
+ 204   3            Interface=1;
+ 205   3          }
+ 206   2        }
+ 207   1        else if(S6==0)
+ 208   1        {
+ 209   2          delayms(5);
+ 210   2          if(S6==0)
+ 211   2          {
+ 212   3            Interface=2;//°´ÏÂS6½øÈë½çÃæ2
+ 213   3            P2 = (P2 & 0x1f)| 0x80;
+ 214   3            P0 |=0X00;
+ 215   3            index++;
+ 216   3            if(index>9)
+ 217   3              index=0;
+ 218   3            while(S6==0);
+ 219   3          }
+ 220   2        }
+ 221   1        else if(S7==0)
+ 222   1        {
+ 223   2          uchar i;
+ 224   2          delayms(5);
+ 225   2          if(S7==0)
+ 226   2          {
+ 227   3            Interface=0;
+ 228   3            tempnum=0;  //ÊµÏÖÔÚ²É¼¯ÎÂ¶Èµ«Ã»½áÊøµÄÊ±ºò£¬°´ÏÂS7ÄÜ¹»ÈËÎªÌáÇ°½áÊø²É¼¯
+ 229   3            for(i=0;i<10;i++)
+ 230   3            {
+ 231   4              temperature_save[i]=0; //°´ÏÂS7´æ·ÅµÄ10¸öÎÂ¶ÈÊý¾ÝÈ«²¿Çå0£¬¿ªÊ¼ÏÂÒ»ÂÖ¼ì²â
+ 232   4            }
+ 233   3          }
+ 234   2        }
+ 235   1      }
+ 236          void Time_Reset()//Ê±¼ä³õÊ¼»¯
+ 237          {
+ 238   1        uchar i;
+C51 COMPILER V9.60.0.0   MAIN                                                              04/03/2022 14:00:05 PAGE 5   
+
+ 239   1        Write_Ds1302_Byte(0x8e,0x00);  //00´ú±íÔÊÐíÏò¼Ä´æÆ÷ÄÚÐ´ÈëÊý¾Ý
+ 240   1        for(i=0;i<7;i++)
+ 241   1        {
+ 242   2          Write_Ds1302_Byte(Time_Wadd[i],Time_Init[i]);
+ 243   2        }
+ 244   1        Write_Ds1302_Byte(0x8e,0x80);  //80´ú±í½ûÖ¹Ïò¼Ä´æÆ÷ÄÚÐ´ÈëÊý¾Ý
+ 245   1      }
+ 246          void Time_Read() //Ê±¼ä¶ÁÈ¡
+ 247          {
+ 248   1        uchar i;
+ 249   1        for(i=0;i<7;i++)
+ 250   1        {
+ 251   2          Time_save[i]=Read_Ds1302_Byte(Time_Radd[i]);
+ 252   2        }
+ 253   1      }
+ 254          void Timer0_Init()
+ 255          {
+ 256   1        TMOD |= 0X01;
+ 257   1        TH0 = (65536-10000)/256;
+ 258   1        TL0 = (65536-10000)%256;
+ 259   1        //TR0 = 1;
+ 260   1        ET0 = 1;
+ 261   1        EA = 1;
+ 262   1      }
+ 263          void Timer0() interrupt 1
+ 264          {
+ 265   1        TH0 = (65536-10000)/256;
+ 266   1        TL0 = (65536-10000)%256;
+ 267   1        count_t++;
+ 268   1        if(count_t==50)
+ 269   1        {
+ 270   2          count_t=0;
+ 271   2          smgstate=~smgstate;
+ 272   2        }
+ 273   1      }
+ 274          void display_interface2()
+ 275          {
+ 276   1        if(smgstate==1)
+ 277   1        {
+ 278   2          P2 = (P2 & 0x1f) | 0xc0;
+ 279   2          P0 = 0x24;
+ 280   2          P2 = (P2 & 0x1f) | 0xe0;
+ 281   2          P0 = 0xbf;
+ 282   2          delayms(1);//Ôö¼ÓÊýÂë¹ÜÁÁ¶È
+ 283   2        }
+ 284   1        else if(smgstate==0)
+ 285   1        {
+ 286   2          P2 = (P2 & 0x1f) | 0xc0;
+ 287   2          P0 = 0x24;
+ 288   2          P2 = (P2 & 0x1f) | 0xe0;
+ 289   2          P0 = 0xff;
+ 290   2          delayms(1);
+ 291   2        }
+ 292   1      }
+ 293          uint DS18B20_Read()
+ 294          {
+ 295   1        uchar LSB,MSB;
+ 296   1        uint temp;//±íÊ¾ÎÂ¶ÈµÄ±äÁ¿¶¼Ó¦¸ÃÎªintÐÍ
+ 297   1        init_ds18b20();
+ 298   1        Write_DS18B20(0xcc);
+ 299   1        Write_DS18B20(0x44);
+ 300   1        
+C51 COMPILER V9.60.0.0   MAIN                                                              04/03/2022 14:00:05 PAGE 6   
+
+ 301   1        init_ds18b20();
+ 302   1        Write_DS18B20(0xcc);
+ 303   1        Write_DS18B20(0xbe);
+ 304   1        
+ 305   1        delayms(1);
+ 306   1        
+ 307   1        LSB = Read_DS18B20();
+ 308   1        MSB = Read_DS18B20();
+ 309   1        
+ 310   1        temp = (MSB << 8) | LSB;
+ 311   1        temp >>= 4;
+ 312   1        return temp;
+ 313   1      }
+ 314          void Timer1_Init()
+ 315          {
+ 316   1        TMOD |= 0X00;
+ 317   1        TH1 = (65536-10000)/256;
+ 318   1        TL1 = (65536-10000)%256;
+ 319   1        TR1 = 0;
+ 320   1        ET1 = 1;
+ 321   1        EA = 1;
+ 322   1      }
+ 323          void Timer1() interrupt 3
+ 324          {
+ 325   1        count_t1++;
+ 326   1        switch(Collect_interval)
+ 327   1        {
+ 328   2          case 1:
+ 329   2            if(count_t1==100)
+ 330   2            {
+ 331   3              count_t1=0;
+ 332   3              tempflag=1;//¶ÁÈ¡ÎÂ¶ÈÊý¾Ý
+ 333   3            }
+ 334   2            break;
+ 335   2          case 5:
+ 336   2            if(count_t1==500)
+ 337   2            {
+ 338   3              count_t1=0;
+ 339   3              tempflag=1;
+ 340   3            }
+ 341   2            break;
+ 342   2          case 30:
+ 343   2            if(count_t1==3000)
+ 344   2            {
+ 345   3              count_t1=0;
+ 346   3              tempflag=1;
+ 347   3            }
+ 348   2            break;
+ 349   2          case 60:
+ 350   2            if(count_t1==6000)
+ 351   2            {
+ 352   3              count_t1=0;
+ 353   3              tempflag=1;
+ 354   3            }
+ 355   2            break;
+ 356   2        }
+ 357   1      }
+ 358          void Tsave()
+ 359          {
+ 360   1        if(tempflag==1)
+ 361   1        {
+ 362   2          temperature_save[tempnum]=DS18B20_Read();
+C51 COMPILER V9.60.0.0   MAIN                                                              04/03/2022 14:00:05 PAGE 7   
+
+ 363   2          tempnum++;
+ 364   2          tempflag=0;
+ 365   2        }
+ 366   1        if(tempnum>9)
+ 367   1        {
+ 368   2          TR1 = 0;//Í£Ö¹¶ÁÈ¡ÎÂ¶È
+ 369   2          tempnum=0;
+ 370   2        }
+ 371   1      }
+ 372          void display_Index(uchar index) 
+ 373          {
+ 374   1        display_bit(0,dpnum[10]);
+ 375   1        delayms(1);
+ 376   1        display_bit(1,dpnum[index/10]);
+ 377   1        delayms(1);
+ 378   1        display_bit(2,dpnum[index%10]);
+ 379   1        delayms(1);
+ 380   1        display_bit(3,dpnum[11]);
+ 381   1        delayms(1);
+ 382   1        display_bit(4,dpnum[11]);
+ 383   1        delayms(1);
+ 384   1        display_bit(5,dpnum[10]);
+ 385   1        delayms(1);
+ 386   1        display_bit(6,dpnum[temperature_save[index]/10]);
+ 387   1        delayms(1);
+ 388   1        display_bit(7,dpnum[temperature_save[index]%10]);
+ 389   1        delayms(1);
+ 390   1        P2 = (P2 & 0x1f) | 0xc0;
+ 391   1        P0 = 0xff;
+ 392   1        P2 = (P2 & 0x1f) | 0xe0;
+ 393   1        P0 = 0xff;
+ 394   1      }
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =   1155    ----
+   CONSTANT SIZE    =     33    ----
+   XDATA SIZE       =   ----    ----
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =     37       8
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =      2    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)
